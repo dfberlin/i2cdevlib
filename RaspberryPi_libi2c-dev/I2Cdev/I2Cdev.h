@@ -67,6 +67,7 @@ THE SOFTWARE.
                                       // ^^^ NBWire implementation is still buggy w/some interrupts!
 #define I2CDEV_BUILTIN_FASTWIRE     3 // FastWire object from Francesco Ferrara's project
 #define I2CDEV_I2CMASTER_LIBRARY    4 // I2C object from DSSCircuits I2C-Master Library at https://github.com/DSSCircuits/I2C-Master-Library
+#define I2CDEV_LINUX_LIBI2C_DEV     5 // Linux userspace I2C programming library
 
 // -----------------------------------------------------------------------------
 // Arduino-style "Serial.print" debug constant (uncomment to enable)
@@ -90,6 +91,21 @@ THE SOFTWARE.
 #ifdef SPARK
     #include <spark_wiring_i2c.h>
     #define ARDUINO 101
+#endif
+
+#ifdef LINUX
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <stdint.h>
+        #include <fcntl.h>
+        #include <errno.h>
+        #include <string.h>
+        #include <unistd.h>
+        #include <sys/stat.h>
+        #include <linux/i2c-dev.h>
+        #include "arduinoCompat.h"
+    #endif
 #endif
 
 
@@ -119,6 +135,13 @@ class I2Cdev {
         static bool writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16_t *data);
 
         static uint16_t readTimeout;
+#if I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV
+        // Has to be called _before_ any other i2c method can be used. (LINUX only).
+        static int openBus(int adapterNr);
+    private:
+        static int deviceFileHandle;
+#endif
+
 };
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
