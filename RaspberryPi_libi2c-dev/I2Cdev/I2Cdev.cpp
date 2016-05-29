@@ -44,6 +44,11 @@ THE SOFTWARE.
 */
 
 #include "I2Cdev.h"
+#ifdef LINUX
+    #ifdef I2CDEV_SERIAL_DEBUG
+        extern arduinoSerial Serial;
+    #endif
+#endif
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
 
@@ -301,6 +306,47 @@ int8_t I2Cdev::readBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8
             count = -1; // error
         }
 
+    #elif (I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV)
+        count = -1; // Default to error.
+        // Set the device address.
+        if (ioctl(I2Cdev::deviceFileHandle, I2C_SLAVE, devAddr) < 0) {
+            #ifdef I2CDEV_SERIAL_DEBUG
+                Serial.print("Error while addressing device: ");
+                Serial.println(regAddr);
+            #endif
+            return -1;
+        }
+        if(write(I2Cdev::deviceFileHandle, &regAddr, 1) != 1) {
+            #ifdef I2CDEV_SERIAL_DEBUG
+                Serial.println("Error while writing regAddr.");
+            #endif
+            return -1;
+        }
+        count = read(I2Cdev::deviceFileHandle, data, length);
+        if (count < 0) {
+            #ifdef I2CDEV_SERIAL_DEBUG
+                Serial.print("Error while reading ");
+                Serial.print(length);
+                Serial.print(" Bytes from device 0x");
+                Serial.print(devAddr, HEX);
+                Serial.print(" register: 0x");
+                Serial.println(regAddr, HEX);
+            #endif
+            return -1;
+        } else if (count < length) {
+            #ifdef I2CDEV_SERIAL_DEBUG
+                Serial.print("Error while reading ");
+                Serial.print(length);
+                Serial.print(" Bytes from device 0x");
+                Serial.print(devAddr, HEX);
+                Serial.print(", starting at register: 0x");
+                Serial.println(regAddr, HEX);
+                Serial.print("Only ");
+                Serial.print(count);
+                Serial.println(" Bytes received.");
+            #endif
+            return -1;
+        }
     #endif
 
     // check for timeout
@@ -454,6 +500,10 @@ int8_t I2Cdev::readWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint1
             count = -1; // error
         }
 
+    #elif (I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV)
+        // FIXME: What to do here?
+        // Endianess involved?
+        count = -1; // For the moment we indicate an error here.
     #endif
 
     if (timeout > 0 && millis() - t1 >= timeout && count < length) count = -1; // timeout
@@ -600,6 +650,26 @@ bool I2Cdev::writeBytes(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint8_
     #elif (I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE)
         Fastwire::beginTransmission(devAddr);
         Fastwire::write(regAddr);
+    #elif (I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV)
+        // Make sure we have enougth buffer space for the i2c tranmission.
+        static uint8_t send_buffer[0xFF+1];
+        send_buffer[0] = regAddr;
+        memcpy(send_buffer+1, data, length);
+        // Set the device address.
+        if (ioctl(I2Cdev::deviceFileHandle, I2C_SLAVE, devAddr) < 0) {
+            status++;
+        }
+        if (status == 0 ) {
+            // All good so far, so we can try the transmission.
+            if (write(I2Cdev::deviceFileHandle, send_buffer, (int) length + 1) != length +1) {
+                #ifdef I2CDEV_SERIAL_DEBUG
+                    Serial.print("Transmission of ");
+                    Serial.print(length);
+                    Serial.println(" Bytes Failed!");
+                #endif
+                status++;
+            }
+        }
     #endif
     for (uint8_t i = 0; i < length; i++) {
         #ifdef I2CDEV_SERIAL_DEBUG
@@ -691,6 +761,20 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
  * Set this to 0 to disable timeout detection.
  */
 uint16_t I2Cdev::readTimeout = I2CDEV_DEFAULT_READ_TIMEOUT;
+
+#if I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV
+int I2Cdev::deviceFileHandle = 0;
+int I2Cdev::openBus(int adapterNR) {
+    int retval = 0;
+    char filename[20];
+    sprintf(filename,"/dev/i2c-%d", adapterNR);
+    if ((I2Cdev::deviceFileHandle = open(filename,O_RDWR)) < 0) {
+        // ERROR HANDLING; you can check errno to see what went wrong
+        retval = I2Cdev::deviceFileHandle;
+    }
+    return retval;
+}
+#endif
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
     // I2C library
