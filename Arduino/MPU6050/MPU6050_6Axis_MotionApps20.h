@@ -84,6 +84,11 @@ THE SOFTWARE.
         #define pgm_read_dword_far(addr) pgm_read_dword(addr)
         #define pgm_read_float_far(addr) pgm_read_float(addr)
     #endif
+    #ifdef LINUX
+        #ifdef DEBUG
+            extern arduinoSerial Serial;
+        #endif
+    #endif
 #endif
 
 /* Source is from the InvenSense MotionApps v2 demo code. Original source is
