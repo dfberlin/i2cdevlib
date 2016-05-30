@@ -501,9 +501,18 @@ int8_t I2Cdev::readWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint1
         }
 
     #elif (I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV)
-        // FIXME: What to do here?
-        // Endianess involved?
-        count = -1; // For the moment we indicate an error here.
+        count = I2Cdev::readBytes(devAddr, regAddr, length * 2, (uint8_t *)data, timeout);
+        if (count >= 0) {
+            for (uint8_t i = 0; i < length; i++) {
+                // Actually I am not sure if the incoming word is big endian.
+                // This code has NOT been tested.
+                // For the conversion function look an man endian on Linux.
+                #warning I2Cdev::readWords has not been tested on Linux!
+                // data[i] = le16toh(data[i]);
+                data[i] = be16toh(data[i]);
+            }
+            count = count / 2;
+        } 
     #endif
 
     if (timeout > 0 && millis() - t1 >= timeout && count < length) count = -1; // timeout
@@ -725,6 +734,18 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
     #elif (I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE)
         Fastwire::beginTransmission(devAddr);
         Fastwire::write(regAddr);
+    #elif (I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV)
+        static uint16_t send_buffer[0xff];  // Temporary buffer for manipulating the data.
+        memcpy(send_buffer, data, length * 2);
+        for (uint8_t i = 0; i < length; i++) {
+            // Not sure about the endianess ...
+            // Test it when you have a use case.
+            // On Linux: man endian
+            #warning I2Cdev::writeWords has not been tested on Linux!
+            data[i] = htole16(data[i]);
+            data[i] = htobe16(data[i]);
+        }
+        return I2Cdev::writeBytes(devAddr, regAddr, length * 2, (uint8_t *) send_buffer);
     #endif
     for (uint8_t i = 0; i < length * 2; i++) {
         #ifdef I2CDEV_SERIAL_DEBUG
@@ -763,7 +784,7 @@ bool I2Cdev::writeWords(uint8_t devAddr, uint8_t regAddr, uint8_t length, uint16
 uint16_t I2Cdev::readTimeout = I2CDEV_DEFAULT_READ_TIMEOUT;
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_LINUX_LIBI2C_DEV
-int I2Cdev::deviceFileHandle = 0;
+int I2Cdev::deviceFileHandle;
 int I2Cdev::openBus(int adapterNR) {
     int retval = 0;
     char filename[20];

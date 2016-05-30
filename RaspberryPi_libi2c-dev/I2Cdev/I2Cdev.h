@@ -103,6 +103,7 @@ THE SOFTWARE.
         #include <string.h>
         #include <unistd.h>
         #include <sys/stat.h>
+        #include <endian.h>
         #include <linux/i2c-dev.h>
         #include "arduinoCompat.h"
     #endif
