@@ -19,6 +19,9 @@ MPU6050_6Axis_MotionApps20.h: $(ARDUINO_MPU6050_DIR)/MPU6050_6Axis_MotionApps20.
 helper_3dmath.h: $(ARDUINO_MPU6050_DIR)/helper_3dmath.h
 	ln -s  $(ARDUINO_MPU6050_DIR)/helper_3dmath.h .
 
+MPU6050_DMP6.ino:  $(ARDUINO_MPU6050_DIR)/examples/MPU6050_DMP6/MPU6050_DMP6.ino
+	ln -s $(ARDUINO_MPU6050_DIR)/examples/MPU6050_DMP6/MPU6050_DMP6.ino .
+
 I2Cdev.o: I2Cdev.cpp
 	$(CXX) $(EXTRA_FLAGS) $(OPTIMIZE) -c I2Cdev.cpp
 MPU6050.o: MPU6050.cpp MPU6050.h MPU6050_6Axis_MotionApps20.h helper_3dmath.h
@@ -33,6 +36,8 @@ demo_dmp.o: demo_dmp.cpp
 	$(CXX) $(EXTRA_FLAGS) $(OPTIMIZE) -c demo_dmp.cpp
 demo_raw.o: demo_raw.cpp
 	$(CXX) $(EXTRA_FLAGS) $(OPTIMIZE) -c demo_raw.cpp
+MPU6050_DMP6.o: MPU6050_DMP6.ino MPU6050_DMP6.cpp MPU6050.cpp MPU6050.h MPU6050_6Axis_MotionApps20.h helper_3dmath.h I2Cdev.o
+	$(CXX) $(EXTRA_FLAGS) $(OPTIMIZE) -c MPU6050_DMP6.cpp
 
 
 
@@ -44,8 +49,13 @@ demo_raw: I2Cdev.o MPU6050.o arduinoCompat.o demo_raw.o
 demo_dmp: I2Cdev.o MPU6050.o arduinoCompat.o demo_dmp.o
 	$(CXX) $(EXTRA_FLAGS) I2Cdev.o MPU6050.o arduinoCompat.o demo_dmp.o -O -o demo_dmp 
 
+MPU6050_DMP6: MPU6050_DMP6.o
+	$(CXX) $(EXTRA_FLAGS) I2Cdev.o MPU6050.o arduinoCompat.o MPU6050_DMP6.o -O -o MPU6050_DMP6
+
+
+
 clean:
 	rm -f *.o demo_dmp demo_raw bla
 	# No worries ... these are just the symlinks :)
-	rm -f MPU6050_6Axis_MotionApps20.h MPU6050.cpp MPU6050.h helper_3dmath.h
+	rm -f MPU6050_6Axis_MotionApps20.h MPU6050.cpp MPU6050.h helper_3dmath.h MPU6050_DMP6.ino
 	
